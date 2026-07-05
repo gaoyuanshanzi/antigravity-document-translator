@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-const dbPath = path.join(__dirname, 'translator.db');
+const dbPath = process.env.VERCEL ? path.join('/tmp', 'translator.db') : path.join(__dirname, 'translator.db');
 const db = new sqlite3.Database(dbPath);
 
 // Helper functions to wrap sqlite3 with Promises

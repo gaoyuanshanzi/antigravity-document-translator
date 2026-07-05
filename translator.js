@@ -490,7 +490,7 @@ async function assembleFinalOutput(jobId, job) {
   }
 
   // Create downloads directory if not exists
-  const downloadsDir = path.join(__dirname, 'downloads');
+  const downloadsDir = process.env.VERCEL ? path.join('/tmp', 'downloads') : path.join(__dirname, 'downloads');
   if (!fs.existsSync(downloadsDir)) {
     fs.mkdirSync(downloadsDir, { recursive: true });
   }

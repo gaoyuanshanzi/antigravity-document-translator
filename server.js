@@ -13,8 +13,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Create required directories
-const uploadsDir = path.join(__dirname, 'uploads');
-const downloadsDir = path.join(__dirname, 'downloads');
+const uploadsDir = process.env.VERCEL ? path.join('/tmp', 'uploads') : path.join(__dirname, 'uploads');
+const downloadsDir = process.env.VERCEL ? path.join('/tmp', 'downloads') : path.join(__dirname, 'downloads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
 
