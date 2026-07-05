@@ -51,7 +51,7 @@ const initDatabase = async () => {
       job_id TEXT PRIMARY KEY,
       filename TEXT NOT NULL,
       original_format TEXT NOT NULL, -- 'txt', 'html', 'docx'
-      target_lang TEXT NOT NULL,      -- 'en', 'ja', 'zh'
+      target_lang TEXT,               -- 'en', 'ja', 'zh' (set when translation starts)
       status TEXT DEFAULT 'pending',  -- 'pending', 'processing', 'completed', 'failed', 'paused'
       total_chunks INTEGER DEFAULT 0,
       completed_chunks INTEGER DEFAULT 0,
