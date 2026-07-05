@@ -323,10 +323,15 @@ app.use((err, req, res, next) => {
   next();
 });
 
-// Start express server
-app.listen(PORT, () => {
-  console.log(`===============================================`);
-  console.log(`   Document Translation Service Online         `);
-  console.log(`   Local Server: http://localhost:${PORT}      `);
-  console.log(`===============================================`);
-});
+// Export app for serverless deployment
+module.exports = app;
+
+// Start express server only when run directly
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`===============================================`);
+    console.log(`   Document Translation Service Online         `);
+    console.log(`   Local Server: http://localhost:${PORT}      `);
+    console.log(`===============================================`);
+  });
+}
