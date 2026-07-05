@@ -1,5 +1,5 @@
 const express = require('express');
-const session = require('express-session');
+const crypto = require('crypto');
 const multer = require('multer');
 const cors = require('cors');
 const path = require('path');
@@ -46,19 +46,47 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session Setup
-app.use(session({
-  secret: 'translation-service-super-secret-key-jesus-123',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 24 * 60 * 60 * 1000 // 1 day
-  }
-}));
+// Crypto and Token Setup for Stateless Sessions
+const SECRET_KEY = 'translation-service-super-secret-key-jesus-123';
 
-// Admin Auth Middleware
+const generateToken = (payload) => {
+  const data = JSON.stringify({ payload, exp: Date.now() + 24 * 60 * 60 * 1000 });
+  const cipher = crypto.createCipheriv('aes-256-cbc', crypto.scryptSync(SECRET_KEY, 'salt', 32), Buffer.alloc(16, 0));
+  let encrypted = cipher.update(data, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return encrypted;
+};
+
+const verifyToken = (token) => {
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-cbc', crypto.scryptSync(SECRET_KEY, 'salt', 32), Buffer.alloc(16, 0));
+    let decrypted = decipher.update(token, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    const obj = JSON.parse(decrypted);
+    if (obj.exp > Date.now()) {
+      return obj.payload;
+    }
+  } catch (e) {}
+  return null;
+};
+
+const getCookie = (req, name) => {
+  const headers = req.headers.cookie;
+  if (!headers) return null;
+  const parts = headers.split(';');
+  for (const part of parts) {
+    const [k, v] = part.split('=');
+    if (k.trim() === name) return v;
+  }
+  return null;
+};
+
+// Admin Auth Middleware (Stateless Cookie-based)
 const requireAdmin = (req, res, next) => {
-  if (req.session && req.session.isAdmin) {
+  const token = getCookie(req, 'admin_session_token');
+  const payload = token ? verifyToken(token) : null;
+  if (payload && payload.isAdmin) {
+    req.isAdmin = true;
     next();
   } else {
     res.status(401).json({ error: 'Unauthorized. Please login as admin.' });
@@ -70,7 +98,8 @@ const requireAdmin = (req, res, next) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   if (username === 'admin' && password === '123jesus') {
-    req.session.isAdmin = true;
+    const token = generateToken({ isAdmin: true });
+    res.setHeader('Set-Cookie', `admin_session_token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400`);
     res.json({ success: true, message: 'Logged in successfully.' });
   } else {
     res.status(400).json({ error: 'Invalid username or password.' });
@@ -78,16 +107,14 @@ app.post('/api/login', (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => {
-  req.session.destroy(err => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to logout.' });
-    }
-    res.json({ success: true, message: 'Logged out successfully.' });
-  });
+  res.setHeader('Set-Cookie', 'admin_session_token=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0');
+  res.json({ success: true, message: 'Logged out successfully.' });
 });
 
 app.get('/api/status', (req, res) => {
-  if (req.session && req.session.isAdmin) {
+  const token = getCookie(req, 'admin_session_token');
+  const payload = token ? verifyToken(token) : null;
+  if (payload && payload.isAdmin) {
     res.json({ loggedIn: true });
   } else {
     res.json({ loggedIn: false });
