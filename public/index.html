@@ -78,7 +78,7 @@
                     </svg>
                     <h2>새 번역 문건 업로드</h2>
                 </div>
-                <p class="section-desc">한국어 문건 파일을 드래그 앤 드롭하거나 클릭해서 선택하세요. (.docx, .txt, .html 지원)</p>
+                <p class="section-desc">한국어, 영어, 일본어, 중국어 등 어떤 언어로 작성된 문건도 업로드할 수 있습니다. (.docx, .txt, .html 지원)</p>
 
                 <div id="drop-zone" class="drop-zone">
                     <svg class="upload-cloud-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -100,6 +100,11 @@
                     </div>
                     <p class="trigger-label">번역할 언어를 선택하세요:</p>
                     <div class="translation-buttons">
+                        <button class="btn-lang" id="btn-ko" data-lang="ko">
+                            <span class="lang-flag">🇰🇷</span>
+                            <span class="lang-name">한국어</span>
+                            <small>한국어 번역</small>
+                        </button>
                         <button class="btn-lang" id="btn-en" data-lang="en">
                             <span class="lang-flag">🇺🇸</span>
                             <span class="lang-name">English</span>
