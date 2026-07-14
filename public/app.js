@@ -339,6 +339,26 @@ function chunkHtml(html) {
 }
 
 // ─────────────────────────────────────────────
+// DIAGNOSTIC MODEL CHECKER
+// ─────────────────────────────────────────────
+
+async function diagnoseModels(apiKey) {
+  addLog('info', '🔍 사용 가능한 AI 모델 목록을 조회하고 있습니다...');
+  try {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey);
+    if (res.ok) {
+      const data = await res.json();
+      const names = data.models ? data.models.map(m => m.name.replace('models/', '')) : [];
+      addLog('info', '💡 이 API 키로 사용 가능한 모델: ' + names.join(', '));
+    } else {
+      addLog('error', '❌ 모델 목록 조회 실패: HTTP ' + res.status);
+    }
+  } catch (err) {
+    addLog('error', '❌ 모델 목록 조회 중 오류: ' + err.message);
+  }
+}
+
+// ─────────────────────────────────────────────
 // GEMINI API CALL
 // ─────────────────────────────────────────────
 
@@ -512,6 +532,12 @@ async function startTranslation(targetLang) {
           }
         } else if (err.status === 400 || err.status === 403) {
           addLog('error', '\u274c API Key #' + ((keyIndex % apiKeys.length) + 1) + ' \uc624\ub958 (' + err.status + '): ' + err.message + '. \ub2e4\uc74c \ud0a4\ub85c \uc774\ub3d9...');
+          
+          // Trigger model diagnosis if it says "not found" or similar
+          if (err.message.toLowerCase().includes('not found') || err.message.toLowerCase().includes('not supported')) {
+            await diagnoseModels(currentKey);
+          }
+
           apiKeys.splice(keyIndex % apiKeys.length, 1);
           if (apiKeys.length === 0) {
             addLog('error', '\u274c \ubaa8\ub4e0 API \ud0a4\uac00 \uc720\ud6a8\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4. \ubc88\uc5ed\uc744 \uc911\ub2e8\ud569\ub2c8\ub2e4.');
