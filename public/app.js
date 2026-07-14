@@ -24,6 +24,7 @@ let selectedFile = null;
 let parsedContent = null;
 let isTranslating = false;
 let stopRequested = false;
+let hardResetRequested = false;
 
 // ── DOM Ready ──
 document.addEventListener('DOMContentLoaded', () => {
@@ -159,14 +160,13 @@ function setupUI() {
 
   // Stop + reset button
   document.getElementById('stop-reset-btn').addEventListener('click', () => {
+    hardResetRequested = true;
     if (isTranslating) {
       stopRequested = true;
       addLog('warn', '\u23f9 \ubc88\uc5ed\uc774 \uc911\uc9c0\ub418\uc5c8\uc2b5\ub2c8\ub2e4.');
     }
-    setTimeout(() => {
-      resetAll();
-      addLog('info', '\ud83d\uddd1 \uc791\uc5c5\uc774 \ucd08\uae30\ud654\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \uc0c8 \ud30c\uc77c\uc744 \uc5c5\ub85c\ub4dc\ud574 \uc8fc\uc138\uc694.');
-    }, 400);
+    resetAll();
+    addLog('info', '\ud83d\uddd1 \uc791\uc5c5\uc774 \ucd08\uae30\ud654\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \uc0c8 \ud30c\uc77c\uc744 \uc5c5\ub85c\ub4dc\ud574 \uc8fc\uc138\uc694.');
   });
 }
 
@@ -259,11 +259,13 @@ function resetFileSelection() {
 }
 
 function resetAll() {
-  isTranslating = false;
-  stopRequested = false;
   resetFileSelection();
   document.querySelectorAll('.btn-lang').forEach(b => b.disabled = false);
   setProgress(0, 0);
+  if (!isTranslating) {
+    stopRequested = false;
+    hardResetRequested = false;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -398,6 +400,7 @@ async function startTranslation(targetLang) {
 
   isTranslating = true;
   stopRequested = false;
+  hardResetRequested = false;
 
   // UI: show progress, disable buttons
   document.querySelectorAll('.btn-lang').forEach(b => b.disabled = true);
@@ -447,6 +450,7 @@ async function startTranslation(targetLang) {
     let success = false;
     let retries = MAX_RETRIES;
     let delay   = 2000;
+    let consecutiveRateLimits = 0;
 
     while (retries > 0 && !success && !stopRequested) {
       const currentKey = apiKeys[keyIndex % apiKeys.length];
@@ -456,20 +460,29 @@ async function startTranslation(targetLang) {
         translatedChunks.push(translated);
         addLog('success', '\u2705 \uccad\ud06c ' + (i + 1) + '/' + total + ' \uc644\ub8cc');
         success = true;
+        consecutiveRateLimits = 0;
         setProgress(i + 1, total);
-        if (i < total - 1) await sleep(INTER_CHUNK_DELAY);
+        if (i < total - 1) {
+          await sleep(INTER_CHUNK_DELAY);
+          if (stopRequested) break;
+        }
 
       } catch (err) {
         if (err.status === 429) {
-          if (apiKeys.length > 1) {
+          consecutiveRateLimits++;
+          if (apiKeys.length > 1 && consecutiveRateLimits < apiKeys.length) {
             keyIndex++;
             addLog('warn', '\u26a0\ufe0f 429 Rate Limit. API Key #' + ((keyIndex % apiKeys.length) + 1) + '\ub85c \uc804\ud658 \uc911...');
             await sleep(1000);
+            if (stopRequested) break;
           } else {
-            addLog('warn', '\u26a0\ufe0f 429 Rate Limit. ' + (delay / 1000) + '\ucd08 \ud6c4 \uc7ac\uc2dc\ub3c4... (\ub0a8\uc740 \uc2dc\ub3c4: ' + (retries - 1) + ')');
+            addLog('warn', '\u26a0\ufe0f \ubaa8\ub4e0 API \ud0a4\uac00 Rate Limit \uc0c1\ud0dc\uc785\ub2c8\ub2e4. ' + (delay / 1000) + '\ucd08 \ud6c4 \uc7ac\uc2dc\ub3c4... (\ub0a8\uc740 \uc2dc\ub3c4: ' + (retries - 1) + ')');
             await sleep(delay);
+            if (stopRequested) break;
             delay = Math.min(delay * 2, 60000);
             retries--;
+            consecutiveRateLimits = 0;
+            keyIndex++;
           }
         } else if (err.status === 400 || err.status === 403) {
           addLog('error', '\u274c API Key #' + ((keyIndex % apiKeys.length) + 1) + ' \uc624\ub958 (' + err.status + '): ' + err.message + '. \ub2e4\uc74c \ud0a4\ub85c \uc774\ub3d9...');
@@ -481,6 +494,7 @@ async function startTranslation(targetLang) {
         } else {
           addLog('warn', '\u26a0\ufe0f \uc624\ub958: ' + err.message + '. ' + (delay / 1000) + '\ucd08 \ud6c4 \uc7ac\uc2dc\ub3c4...');
           await sleep(delay);
+          if (stopRequested) break;
           delay = Math.min(delay * 2, 30000);
           retries--;
         }
@@ -494,16 +508,17 @@ async function startTranslation(targetLang) {
   }
 
   // Assemble output
-  if (translatedChunks.length > 0) {
+  if (!hardResetRequested && translatedChunks.length > 0) {
     addLog('info', '\ud83d\udcdd \ucd5c\uc885 \ubb38\uc11c \uc870\ub9bd \uc911...');
     const finalHtml = assembleOutput(translatedChunks, isHtml, targetLang, selectedFile.name);
     downloadHtml(finalHtml, targetLang, selectedFile.name);
     addLog('success', '\ud83c\udf89 \ubc88\uc5ed \uc644\ub8cc! \ub2e4\uc6b4\ub85c\ub4dc\uac00 \uc2dc\uc791\ub429\ub2c8\ub2e4.');
   }
 
-  // Reset UI
+  // Reset UI and state variables
   isTranslating = false;
   stopRequested = false;
+  hardResetRequested = false;
   document.querySelectorAll('.btn-lang').forEach(b => b.disabled = false);
 }
 
