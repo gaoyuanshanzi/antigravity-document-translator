@@ -50,6 +50,10 @@ function showApp() {
   document.getElementById('login-overlay').classList.add('hidden');
   document.getElementById('app-container').classList.remove('hidden');
   loadApiKeys();
+
+  // Load model preference from localStorage
+  const savedModel = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
+  document.getElementById('model-select').value = savedModel;
 }
 function showLogin() {
   document.getElementById('login-overlay').classList.remove('hidden');
@@ -117,8 +121,13 @@ function setupUI() {
     const keys = Array.from(document.querySelectorAll('.key-input'))
       .map(i => i.value.trim()).filter(Boolean);
     localStorage.setItem('gemini_api_keys', JSON.stringify(keys));
+
+    // Save model preference
+    const selectedModel = document.getElementById('model-select').value;
+    localStorage.setItem('gemini_model', selectedModel);
+
     const s = document.getElementById('keys-status');
-    s.textContent = '\u2705 ' + keys.length + '\uac1c\uc758 API \ud0a4\uac00 \uc800\uc7a5\ub418\uc5c8\uc2b5\ub2c8\ub2e4.';
+    s.textContent = '\u2705 ' + keys.length + '\uac1c\uc758 API \ud0a4\uc640 \ubaa8\ubc78\uc774 \uc800\uc7a5\ub418\uc5c8\uc2b5\ub2c8\ub2e4.';
     s.style.color = 'var(--success)';
     loadApiKeys();
     setTimeout(() => { s.textContent = ''; }, 3000);
@@ -333,8 +342,8 @@ function chunkHtml(html) {
 // GEMINI API CALL
 // ─────────────────────────────────────────────
 
-async function callGemini(apiKey, systemInstruction, userPrompt) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+async function callGemini(apiKey, systemInstruction, userPrompt, modelName = 'gemini-1.5-flash') {
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + apiKey;
   const body = {
     system_instruction: { parts: [{ text: systemInstruction }] },
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
@@ -406,6 +415,9 @@ async function startTranslation(targetLang) {
   document.querySelectorAll('.btn-lang').forEach(b => b.disabled = true);
   document.getElementById('translation-progress-panel').classList.remove('hidden');
 
+  // Read selected AI model
+  const selectedModel = document.getElementById('model-select').value || 'gemini-1.5-flash';
+
   const langName = LANG_MAP[targetLang] || targetLang;
   const isHtml   = parsedContent.format === 'html';
 
@@ -427,7 +439,7 @@ async function startTranslation(targetLang) {
   const chunks = isHtml ? chunkHtml(parsedContent.text) : chunkText(parsedContent.text);
   const total  = chunks.length;
 
-  addLog('info', '\ud83d\ude80 ' + langName + ' \ubc88\uc5ed \uc2dc\uc791. \uccd9 ' + total + '\uac1c \uccad\ud06c, ' + apiKeys.length + '\uac1c API \ud0a4 \uc0ac\uc6a9.');
+  addLog('info', '\ud83d\ude80 ' + langName + ' \ubc88\uc5ed \uc2dc\uc791 (' + selectedModel + '). \uccd9 ' + total + '\uac1c \uccad\ud06c, ' + apiKeys.length + '\uac1c API \ud0a4 \uc0ac\uc6a9.');
   setProgress(0, total);
 
   const translatedChunks = [];
@@ -456,7 +468,7 @@ async function startTranslation(targetLang) {
       const currentKey = apiKeys[keyIndex % apiKeys.length];
       try {
         addLog('info', '\ud83d\udd04 \uccad\ud06c ' + (i + 1) + '/' + total + ' \ubc88\uc5ed \uc911 (API Key #' + ((keyIndex % apiKeys.length) + 1) + ')...');
-        const translated = await callGemini(currentKey, systemInstruction, prompt);
+        const translated = await callGemini(currentKey, systemInstruction, prompt, selectedModel);
         translatedChunks.push(translated);
         addLog('success', '\u2705 \uccad\ud06c ' + (i + 1) + '/' + total + ' \uc644\ub8cc');
         success = true;

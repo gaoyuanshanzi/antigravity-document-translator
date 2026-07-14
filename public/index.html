@@ -64,6 +64,13 @@
                 </div>
                 <p class="section-desc">최대 5개의 API 키를 등록하면 할당량 초과(429) 시 자동으로 다음 키로 전환합니다. 키는 브라우저에 안전하게 저장됩니다.</p>
                 <form id="keys-form">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label for="model-select" style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 7px; letter-spacing: 0.6px; display: block;">번역 AI 모델 선택</label>
+                        <select id="model-select" style="width: 100%; background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary); padding: 12px 15px; border-radius: 10px; font-size: 14px; cursor: pointer; outline: none; transition: border-color var(--speed);">
+                            <option value="gemini-1.5-flash" selected>Gemini 1.5 Flash (안정적 - 한도 오류 방지용)</option>
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash (최신 모델)</option>
+                        </select>
+                    </div>
                     <div id="keys-inputs-container"></div>
                     <button type="submit" class="btn-primary w-100" id="save-keys-btn">API 키 저장</button>
                 </form>
