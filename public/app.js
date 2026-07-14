@@ -345,11 +345,23 @@ function chunkHtml(html) {
 async function callGemini(apiKey, systemInstruction, userPrompt, modelName = 'gemini-1.5-flash') {
   const apiVersion = modelName.includes('2.0') ? 'v1beta' : 'v1';
   const url = 'https://generativelanguage.googleapis.com/' + apiVersion + '/models/' + modelName + ':generateContent?key=' + apiKey;
-  const body = {
-    systemInstruction: { parts: [{ text: systemInstruction }] },
-    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
-  };
+  
+  let body;
+  if (apiVersion === 'v1') {
+    // Stable v1: prepend system instructions to user content to bypass strict schema validation
+    const fullPrompt = 'System Instructions:\n' + systemInstruction + '\n\n' + userPrompt;
+    body = {
+      contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+    };
+  } else {
+    // Beta v1beta: native systemInstruction field in body
+    body = {
+      systemInstruction: { parts: [{ text: systemInstruction }] },
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+    };
+  }
 
   const res = await fetch(url, {
     method: 'POST',
