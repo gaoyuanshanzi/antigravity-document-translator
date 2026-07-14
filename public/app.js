@@ -52,8 +52,11 @@ function showApp() {
   loadApiKeys();
 
   // Load model preference from localStorage
-  const savedModel = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
-  document.getElementById('model-select').value = savedModel;
+  const savedModel = localStorage.getItem('gemini_model') || 'gemini-3.5-flash';
+  const selectEl = document.getElementById('model-select');
+  // If saved model doesn't exist in options, fall back to first option
+  selectEl.value = savedModel;
+  if (!selectEl.value) selectEl.value = selectEl.options[0].value;
 }
 function showLogin() {
   document.getElementById('login-overlay').classList.remove('hidden');
@@ -362,26 +365,17 @@ async function diagnoseModels(apiKey) {
 // GEMINI API CALL
 // ─────────────────────────────────────────────
 
-async function callGemini(apiKey, systemInstruction, userPrompt, modelName = 'gemini-1.5-flash') {
-  const apiVersion = modelName.includes('2.0') ? 'v1beta' : 'v1';
+async function callGemini(apiKey, systemInstruction, userPrompt, modelName = 'gemini-3.5-flash') {
+  // All modern models use v1beta; avoid v1 which rejects systemInstruction and newer models
+  const apiVersion = 'v1beta';
   const url = 'https://generativelanguage.googleapis.com/' + apiVersion + '/models/' + modelName + ':generateContent?key=' + apiKey;
   
-  let body;
-  if (apiVersion === 'v1') {
-    // Stable v1: prepend system instructions to user content to bypass strict schema validation
-    const fullPrompt = 'System Instructions:\n' + systemInstruction + '\n\n' + userPrompt;
-    body = {
-      contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
-    };
-  } else {
-    // Beta v1beta: native systemInstruction field in body
-    body = {
-      systemInstruction: { parts: [{ text: systemInstruction }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
-    };
-  }
+  // v1beta supports systemInstruction natively for all modern Gemini models
+  const body = {
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+    generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+  };
 
   const res = await fetch(url, {
     method: 'POST',
