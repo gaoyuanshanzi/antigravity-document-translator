@@ -343,7 +343,8 @@ function chunkHtml(html) {
 // ─────────────────────────────────────────────
 
 async function callGemini(apiKey, systemInstruction, userPrompt, modelName = 'gemini-1.5-flash') {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + apiKey;
+  const apiVersion = modelName.includes('2.0') ? 'v1beta' : 'v1';
+  const url = 'https://generativelanguage.googleapis.com/' + apiVersion + '/models/' + modelName + ':generateContent?key=' + apiKey;
   const body = {
     system_instruction: { parts: [{ text: systemInstruction }] },
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
