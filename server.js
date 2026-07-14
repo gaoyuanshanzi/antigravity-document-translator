@@ -131,13 +131,16 @@ app.use('/api/jobs', requireAdmin);
 app.use('/api/download', requireAdmin);
 
 // --- API KEYS CONFIGURATION ---
+// Keys are stored in the browser (localStorage) and sent with each translate request.
+// The DB is kept as a fallback for backward compatibility but is not relied upon on Vercel.
 
 app.get('/api/keys', async (req, res) => {
   try {
+    // Try DB first (works locally); on Vercel the DB is ephemeral so this may return empty
     const keys = await dbAll('SELECT key_value, status FROM api_keys ORDER BY id ASC');
     res.json({ keys: keys.map(k => ({ value: k.key_value, status: k.status })) });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve API keys.' });
+    res.json({ keys: [] });
   }
 });
 
@@ -147,17 +150,20 @@ app.post('/api/keys', async (req, res) => {
     if (!Array.isArray(keys)) {
       return res.status(400).json({ error: 'Keys must be an array.' });
     }
-
-    // Keep max 5 keys
     const filteredKeys = keys.slice(0, 5).map(k => k.trim()).filter(Boolean);
 
-    // Delete existing and insert new ones
-    await dbRun('DELETE FROM api_keys');
-    for (const keyVal of filteredKeys) {
-      await dbRun('INSERT OR IGNORE INTO api_keys (key_value, status) VALUES (?, ?)', [keyVal, 'active']);
+    // Best-effort save to DB (works locally; ephemeral on Vercel)
+    try {
+      await dbRun('DELETE FROM api_keys');
+      for (const keyVal of filteredKeys) {
+        await dbRun('INSERT OR IGNORE INTO api_keys (key_value, status) VALUES (?, ?)', [keyVal, 'active']);
+      }
+    } catch (dbErr) {
+      console.warn('DB key save skipped (ephemeral env):', dbErr.message);
     }
 
-    res.json({ success: true, message: 'API keys updated successfully.' });
+    // Always respond success — keys are primarily stored in the browser
+    res.json({ success: true, message: 'API keys saved. They will be used for translation requests.' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update API keys.' });
   }
@@ -216,7 +222,7 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
 app.post('/api/jobs/:id/translate', async (req, res) => {
   try {
     const { id } = req.params;
-    const { target_lang } = req.body; // 'en', 'ja', 'zh'
+    const { target_lang, api_keys } = req.body; // api_keys sent from browser localStorage
 
     if (!['en', 'ja', 'zh'].includes(target_lang)) {
       return res.status(400).json({ error: 'Unsupported target language. Select en, ja, or zh.' });
@@ -227,14 +233,20 @@ app.post('/api/jobs/:id/translate', async (req, res) => {
       return res.status(404).json({ error: 'Job not found.' });
     }
 
+    // Validate that at least one API key was supplied
+    const suppliedKeys = Array.isArray(api_keys) ? api_keys.map(k => k.trim()).filter(Boolean) : [];
+    if (suppliedKeys.length === 0) {
+      return res.status(400).json({ error: 'API 키가 없습니다. 왼쪽 패널에서 Gemini API 키를 입력하고 저장해 주세요.' });
+    }
+
     // Set target language and start
     await dbRun(
       'UPDATE translation_jobs SET target_lang = ?, status = "pending" WHERE job_id = ?',
       [target_lang, id]
     );
 
-    // Trigger translator in background
-    startTranslation(id);
+    // Trigger translator in background, passing keys directly
+    startTranslation(id, suppliedKeys);
 
     res.json({ success: true, message: `Translation to ${target_lang} started in background.` });
   } catch (error) {
@@ -264,6 +276,7 @@ app.post('/api/jobs/:id/pause', async (req, res) => {
 app.post('/api/jobs/:id/resume', async (req, res) => {
   try {
     const { id } = req.params;
+    const { api_keys } = req.body;
     const job = await dbGet('SELECT * FROM translation_jobs WHERE job_id = ?', [id]);
     if (!job) {
       return res.status(404).json({ error: 'Job not found.' });
@@ -273,8 +286,10 @@ app.post('/api/jobs/:id/resume', async (req, res) => {
       return res.status(400).json({ error: 'Job is already completed.' });
     }
 
-    // Start background thread
-    startTranslation(id);
+    const suppliedKeys = Array.isArray(api_keys) ? api_keys.map(k => k.trim()).filter(Boolean) : [];
+
+    // Start background thread, passing keys directly
+    startTranslation(id, suppliedKeys);
 
     res.json({ success: true, message: 'Translation resumed.' });
   } catch (error) {

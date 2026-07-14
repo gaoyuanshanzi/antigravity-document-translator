@@ -207,8 +207,11 @@ async function callGeminiApi(apiKey, prompt, systemInstructions) {
 
 /**
  * Runs the translation loop for a given job.
+ * @param {string} jobId
+ * @param {AbortSignal} abortSignal
+ * @param {string[]} suppliedKeys - API keys passed directly from the client request
  */
-async function runTranslationLoop(jobId, abortSignal) {
+async function runTranslationLoop(jobId, abortSignal, suppliedKeys = []) {
   await logJobMessage(jobId, 'Starting translation background loop.', 'info');
   await dbRun('UPDATE translation_jobs SET status = "processing", updated_at = CURRENT_TIMESTAMP WHERE job_id = ?', [jobId]);
 
@@ -250,14 +253,19 @@ async function runTranslationLoop(jobId, abortSignal) {
     return;
   }
 
-  // Get active API keys
-  let apiKeys = (await dbAll('SELECT key_value FROM api_keys WHERE status = "active"')).map(r => r.key_value);
+  // Use keys supplied by client; fall back to DB only if none provided (local dev)
+  let apiKeys = suppliedKeys.filter(Boolean);
+  if (apiKeys.length === 0) {
+    apiKeys = (await dbAll('SELECT key_value FROM api_keys WHERE status = "active"')).map(r => r.key_value);
+  }
   
   if (apiKeys.length === 0) {
     await logJobMessage(jobId, 'No active Gemini API keys found. Please add a key in the settings panel.', 'error');
     await dbRun('UPDATE translation_jobs SET status = "failed", updated_at = CURRENT_TIMESTAMP WHERE job_id = ?', [jobId]);
     return;
   }
+
+  await logJobMessage(jobId, `Using ${apiKeys.length} API key(s) for translation.`, 'info');
 
   let keyIndex = 0;
 
@@ -511,8 +519,10 @@ async function assembleFinalOutput(jobId, job) {
 
 /**
  * Triggers background translation.
+ * @param {string} jobId
+ * @param {string[]} suppliedKeys - API keys passed from client
  */
-function startTranslation(jobId) {
+function startTranslation(jobId, suppliedKeys = []) {
   // If job is already active, return its abort controller
   if (activeJobs.has(jobId)) {
     return activeJobs.get(jobId);
@@ -521,8 +531,8 @@ function startTranslation(jobId) {
   const controller = new AbortController();
   activeJobs.set(jobId, controller);
 
-  // Run asynchronously in the background
-  runTranslationLoop(jobId, controller.signal)
+  // Run asynchronously in the background, passing keys directly
+  runTranslationLoop(jobId, controller.signal, suppliedKeys)
     .catch(async (err) => {
       console.error(`Unhandled loop crash for job ${jobId}:`, err);
       await logJobMessage(jobId, `Fatal system crash in background worker: ${err.message}`, 'error');

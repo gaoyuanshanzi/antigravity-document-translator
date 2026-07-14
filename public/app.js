@@ -4,6 +4,15 @@ let logPollInterval = null;
 let jobsPollInterval = null;
 let currentUploadedJobId = null;
 
+// Helper: read API keys stored in browser localStorage
+function getStoredKeys() {
+  try {
+    return JSON.parse(localStorage.getItem('gemini_api_keys') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
 // Initialize app on load
 document.addEventListener('DOMContentLoaded', () => {
   checkAuthStatus();
@@ -87,26 +96,25 @@ function setupEventListeners() {
   keysForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const inputs = document.querySelectorAll('.key-input');
-    const keys = Array.from(inputs).map(inp => inp.value.trim());
+    const keys = Array.from(inputs).map(inp => inp.value.trim()).filter(Boolean);
     const statusDiv = document.getElementById('keys-status');
     statusDiv.textContent = '저장 중...';
 
     try {
-      const res = await fetch('/api/keys', {
+      // Always save to localStorage first (works on Vercel serverless too)
+      localStorage.setItem('gemini_api_keys', JSON.stringify(keys));
+
+      // Best-effort save to server DB (works when persistent, e.g. local dev)
+      await fetch('/api/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keys })
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        statusDiv.textContent = 'API 키가 성공적으로 저장되었습니다.';
-        statusDiv.style.color = 'var(--color-success)';
-        loadApiKeys(); // Reload status indicators
-        setTimeout(() => { statusDiv.textContent = ''; }, 3000);
-      } else {
-        statusDiv.textContent = data.error || '저장 실패';
-        statusDiv.style.color = 'var(--color-danger)';
-      }
+
+      statusDiv.textContent = `✅ ${keys.length}개의 API 키가 저장되었습니다.`;
+      statusDiv.style.color = 'var(--color-success)';
+      loadApiKeys();
+      setTimeout(() => { statusDiv.textContent = ''; }, 3000);
     } catch (err) {
       statusDiv.textContent = '통신 에러';
       statusDiv.style.color = 'var(--color-danger)';
@@ -150,20 +158,24 @@ function setupEventListeners() {
       const targetLang = btn.dataset.lang;
       if (!currentUploadedJobId) return;
 
+      const apiKeys = getStoredKeys();
+      if (apiKeys.length === 0) {
+        alert('Gemini API 키가 없습니다. 왼쪽 패널에서 API 키를 입력하고 저장해 주세요.');
+        return;
+      }
+
       try {
         const res = await fetch(`/api/jobs/${currentUploadedJobId}/translate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_lang: targetLang })
+          body: JSON.stringify({ target_lang: targetLang, api_keys: apiKeys })
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          // Open logs right away and close upload triggers
           openLogs(currentUploadedJobId, document.getElementById('upload-filename').textContent);
           document.getElementById('translation-trigger-panel').classList.add('hidden');
           document.getElementById('upload-progress-container').classList.add('hidden');
           currentUploadedJobId = null;
-          // Refresh list immediately
           fetchJobsList();
         } else {
           alert(data.error || '번역 시작 실패');
@@ -181,41 +193,38 @@ function setupEventListeners() {
   });
 }
 
-// Load API Keys from backend and generate input elements
+// Load API Keys — prefer localStorage (works on Vercel), fall back to server DB
 async function loadApiKeys() {
-  try {
-    const res = await fetch('/api/keys');
-    const data = await res.json();
-    const container = document.getElementById('keys-inputs-container');
-    container.innerHTML = '';
+  const container = document.getElementById('keys-inputs-container');
+  container.innerHTML = '';
 
-    // Always display 5 slots
-    for (let i = 0; i < 5; i++) {
-      const keyObj = data.keys && data.keys[i] ? data.keys[i] : { value: '', status: 'active' };
-      
-      const row = document.createElement('div');
-      row.className = 'key-input-row';
-      
-      const label = document.createElement('label');
-      label.textContent = `API KEY ${i + 1}`;
-      
-      const input = document.createElement('input');
-      input.type = 'password';
-      input.className = 'key-input';
-      input.value = keyObj.value;
-      input.placeholder = 'AIzaSy...';
+  // Try to get keys from localStorage first
+  const localKeys = getStoredKeys();
 
-      const indicator = document.createElement('span');
-      indicator.className = `key-status-indicator ${keyObj.value ? keyObj.status : ''}`;
-      indicator.title = keyObj.value ? `Key Status: ${keyObj.status.toUpperCase()}` : 'Empty Slot';
+  // Build 5 input slots
+  for (let i = 0; i < 5; i++) {
+    const storedVal = localKeys[i] || '';
 
-      row.appendChild(label);
-      row.appendChild(input);
-      row.appendChild(indicator);
-      container.appendChild(row);
-    }
-  } catch (err) {
-    console.error('Failed to load API keys:', err);
+    const row = document.createElement('div');
+    row.className = 'key-input-row';
+
+    const label = document.createElement('label');
+    label.textContent = `API KEY ${i + 1}`;
+
+    const input = document.createElement('input');
+    input.type = 'password';
+    input.className = 'key-input';
+    input.value = storedVal;
+    input.placeholder = 'AIzaSy...';
+
+    const indicator = document.createElement('span');
+    indicator.className = `key-status-indicator ${storedVal ? 'active' : ''}`;
+    indicator.title = storedVal ? 'Key Saved Locally' : 'Empty Slot';
+
+    row.appendChild(label);
+    row.appendChild(input);
+    row.appendChild(indicator);
+    container.appendChild(row);
   }
 }
 
@@ -421,11 +430,16 @@ function translateStatus(status) {
 
 // Call backend to trigger translation
 async function startJobTranslation(jobId, lang) {
+  const apiKeys = getStoredKeys();
+  if (apiKeys.length === 0) {
+    alert('Gemini API 키가 없습니다. 왼쪽 패널에서 API 키를 입력하고 저장해 주세요.');
+    return;
+  }
   try {
     const res = await fetch(`/api/jobs/${jobId}/translate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target_lang: lang })
+      body: JSON.stringify({ target_lang: lang, api_keys: apiKeys })
     });
     if (res.ok) {
       fetchJobsList();
@@ -452,12 +466,19 @@ async function pauseJob(jobId) {
 
 // Call backend to resume
 async function resumeJob(jobId) {
+  const apiKeys = getStoredKeys();
+  if (apiKeys.length === 0) {
+    alert('Gemini API 키가 없습니다. 왼쪽 패널에서 API 키를 입력하고 저장해 주세요.');
+    return;
+  }
   try {
-    const res = await fetch(`/api/jobs/${jobId}/resume`, { method: 'POST' });
+    const res = await fetch(`/api/jobs/${jobId}/resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_keys: apiKeys })
+    });
     if (res.ok) {
       fetchJobsList();
-      // Auto open logs
-      const jobRow = document.querySelector(`[data-job-id="${jobId}"]`);
       openLogs(jobId, '작업');
     }
   } catch (err) {
