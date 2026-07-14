@@ -530,6 +530,11 @@ async function startTranslation(targetLang) {
             consecutiveRateLimits = 0;
             keyIndex++;
           }
+        } else if (err.status === 404 || err.message.toLowerCase().includes('not found') || err.message.toLowerCase().includes('not supported')) {
+          addLog('error', '\u274c \ubaa8\ub378 \uc624\ub958 (' + err.status + '): \uc120\ud0dd\ud55c \ubaa8\ub378\uc744 \ucc3e\uc74c \uc218 \uc5c6\uac70\ub098 API\uc5d0\uc11c \uc9c0\uc6d0\ud558\uc9c0 \uc545\uc2b5\ub2c8\ub2e4: ' + err.message);
+          await diagnoseModels(currentKey);
+          addLog('error', '\u274c \uc624\ub958 \ubcf5\uad6c \ubd88\uac00. \ubc88\uc5ed\uc744 \uc911\ub2e8\ud569\ub2c8\ub2e4.');
+          retries = 0;
         } else if (err.status === 400 || err.status === 403) {
           addLog('error', '\u274c API Key #' + ((keyIndex % apiKeys.length) + 1) + ' \uc624\ub958 (' + err.status + '): ' + err.message + '. \ub2e4\uc74c \ud0a4\ub85c \uc774\ub3d9...');
           
