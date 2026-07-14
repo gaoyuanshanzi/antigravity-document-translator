@@ -470,9 +470,10 @@ async function startTranslation(targetLang) {
       } catch (err) {
         if (err.status === 429) {
           consecutiveRateLimits++;
+          addLog('warn', '\u26a0\ufe0f 429 Rate Limit (API Key #' + ((keyIndex % apiKeys.length) + 1) + ') \uac10\uc9c0: ' + err.message);
           if (apiKeys.length > 1 && consecutiveRateLimits < apiKeys.length) {
             keyIndex++;
-            addLog('warn', '\u26a0\ufe0f 429 Rate Limit. API Key #' + ((keyIndex % apiKeys.length) + 1) + '\ub85c \uc804\ud658 \uc911...');
+            addLog('warn', '\u26a0\ufe0f \ub2e4\uc74c API Key #' + ((keyIndex % apiKeys.length) + 1) + '\ub85c \uc804\ud658 \uc911...');
             await sleep(1000);
             if (stopRequested) break;
           } else {
