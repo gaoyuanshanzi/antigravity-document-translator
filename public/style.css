@@ -230,3 +230,77 @@ body {
 .log-entry.warn{color:#f59e0b}
 .log-entry.error{color:#f87171}
 .log-time{color:#374151;margin-right:10px}
+
+/* ─── Input Mode Tabs ─── */
+.input-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+}
+.input-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: -1px;
+    border-radius: 8px 8px 0 0;
+    transition: color var(--speed), border-color var(--speed), background var(--speed);
+    font-family: inherit;
+}
+.input-tab:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.04);
+}
+.input-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: rgba(99,102,241,0.06);
+}
+
+/* ─── Tab Content ─── */
+.tab-content { animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+/* ─── Direct Text Input ─── */
+.text-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.direct-text-area {
+    width: 100%;
+    min-height: 200px;
+    max-height: 340px;
+    resize: vertical;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-family: 'Inter','Noto Sans KR',sans-serif;
+    font-size: 13.5px;
+    line-height: 1.75;
+    padding: 16px 18px;
+    outline: none;
+    transition: border-color var(--speed), box-shadow var(--speed);
+}
+.direct-text-area:focus {
+    border-color: var(--border-hover);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.direct-text-area::placeholder { color: var(--text-muted); }
+.text-input-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+}
+.char-count {
+    font-size: 12px;
+    color: var(--text-muted);
+}

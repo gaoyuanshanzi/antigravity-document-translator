@@ -85,17 +85,46 @@
                     <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4m4-5l5-5 5 5m-5-5v12"/>
                     </svg>
-                    <h2>새 번역 문건 업로드</h2>
+                    <h2>번역할 내용 입력</h2>
                 </div>
-                <p class="section-desc">한국어, 영어, 일본어, 중국어 등 어떤 언어로 작성된 문건도 업로드할 수 있습니다. (.docx, .txt, .html 지원)</p>
+                <p class="section-desc">파일을 업로드하거나, 텍스트를 직접 붙여 넣어 번역할 수 있습니다.</p>
 
-                <div id="drop-zone" class="drop-zone">
-                    <svg class="upload-cloud-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M12 16v-8m0 8l-3-3m3 3l3-3M20.62 8.62a6 6 0 00-11.24-2.28 6 6 0 00-6.76 6.84 5 5 0 005.15 4.82h11.23a4 4 0 001-7.38z"/>
-                    </svg>
-                    <p class="drop-zone-text">파일을 끌어오거나 클릭하여 업로드</p>
-                    <span class="file-limits">TXT · HTML · MS Word (.docx)</span>
-                    <input type="file" id="file-input" accept=".txt,.html,.docx" class="hidden">
+                <!-- Input Mode Tabs -->
+                <div class="input-tabs">
+                    <button class="input-tab active" id="tab-file" data-tab="file">
+                        📄 파일 업로드
+                    </button>
+                    <button class="input-tab" id="tab-text" data-tab="text">
+                        ✏️ 텍스트 직접 입력
+                    </button>
+                </div>
+
+                <!-- Tab: File Upload -->
+                <div id="tab-content-file" class="tab-content">
+                    <div id="drop-zone" class="drop-zone">
+                        <svg class="upload-cloud-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 16v-8m0 8l-3-3m3 3l3-3M20.62 8.62a6 6 0 00-11.24-2.28 6 6 0 00-6.76 6.84 5 5 0 005.15 4.82h11.23a4 4 0 001-7.38z"/>
+                        </svg>
+                        <p class="drop-zone-text">파일을 끌어오거나 클릭하여 업로드</p>
+                        <span class="file-limits">TXT · HTML · MS Word (.docx)</span>
+                        <input type="file" id="file-input" accept=".txt,.html,.docx" class="hidden">
+                    </div>
+                </div>
+
+                <!-- Tab: Direct Text Input -->
+                <div id="tab-content-text" class="tab-content hidden">
+                    <div class="text-input-wrapper">
+                        <textarea
+                            id="direct-text-input"
+                            class="direct-text-area"
+                            placeholder="번역할 텍스트를 여기에 붙여 넣으세요...&#10;&#10;한국어, 영어, 일본어, 중국어 등 어떤 언어든 입력 가능합니다."
+                            spellcheck="false"
+                        ></textarea>
+                        <div class="text-input-footer">
+                            <span id="char-count" class="char-count">0자</span>
+                            <button id="load-text-btn" class="btn-primary" style="padding: 10px 22px; font-size: 13px;">텍스트 불러오기 →</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Translation Buttons -->

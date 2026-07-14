@@ -180,6 +180,49 @@ function setupUI() {
     resetAll();
     addLog('info', '\ud83d\uddd1 \uc791\uc5c5\uc774 \ucd08\uae30\ud654\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \uc0c8 \ud30c\uc77c\uc744 \uc5c5\ub85c\ub4dc\ud574 \uc8fc\uc138\uc694.');
   });
+
+  // ── Input Mode Tab Switching ──
+  document.querySelectorAll('.input-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.input-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const target = tab.dataset.tab;
+      document.getElementById('tab-content-file').classList.toggle('hidden', target !== 'file');
+      document.getElementById('tab-content-text').classList.toggle('hidden', target !== 'text');
+      // Reset file selection when switching to file tab
+      if (target === 'file') {
+        if (!selectedFile) resetFileSelection();
+      }
+    });
+  });
+
+  // ── Char Counter for direct text area ──
+  const directTextInput = document.getElementById('direct-text-input');
+  const charCount = document.getElementById('char-count');
+  directTextInput.addEventListener('input', () => {
+    const len = directTextInput.value.length;
+    charCount.textContent = len.toLocaleString() + '\uc790';
+  });
+
+  // ── Load Text Button ──
+  document.getElementById('load-text-btn').addEventListener('click', () => {
+    const rawText = directTextInput.value.trim();
+    if (!rawText) {
+      addLog('warn', '\u26a0\ufe0f \uc785\ub825\ub41c \ud14d\uc2a4\ud2b8\uac00 \uc5c6\uc2b5\ub2c8\ub2e4. \ud14d\uc2a4\ud2b8\ub97c \uba3c\uc800 \uc785\ub825\ud574 \uc8fc\uc138\uc694.');
+      return;
+    }
+    // Treat direct text input as plain text
+    selectedFile = { name: '\uc9c1\uc811\uc785\ub825\ud14d\uc2a4\ud2b8.txt' };
+    parsedContent = { format: 'text', text: rawText };
+
+    const detected = detectLanguage(rawText);
+    const detectedKo = LANG_NAME_KO[detected] || '\ubbf8\uac10\uc9c0';
+    const charLen = rawText.length;
+    addLog('success', '\u2705 \ud14d\uc2a4\ud2b8 \ubd88\ub7ec\uc624\uae30 \uc644\ub8cc. \uccd9 ' + charLen.toLocaleString() + '\uc790 | \uac10\uc9c0\ub41c \uc5b8\uc5b4: ' + detectedKo);
+
+    document.getElementById('selected-filename').textContent = '\uc9c1\uc811 \uc785\ub825: ' + charLen.toLocaleString() + '\uc790';
+    document.getElementById('translation-trigger-panel').classList.remove('hidden');
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -268,6 +311,11 @@ function resetFileSelection() {
   document.getElementById('file-input').value = '';
   document.getElementById('translation-trigger-panel').classList.add('hidden');
   document.getElementById('translation-progress-panel').classList.add('hidden');
+  // Also clear direct text input
+  const textArea = document.getElementById('direct-text-input');
+  if (textArea) { textArea.value = ''; }
+  const charCount = document.getElementById('char-count');
+  if (charCount) { charCount.textContent = '0자'; }
 }
 
 function resetAll() {
