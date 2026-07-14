@@ -346,7 +346,7 @@ async function callGemini(apiKey, systemInstruction, userPrompt, modelName = 'ge
   const apiVersion = modelName.includes('2.0') ? 'v1beta' : 'v1';
   const url = 'https://generativelanguage.googleapis.com/' + apiVersion + '/models/' + modelName + ':generateContent?key=' + apiKey;
   const body = {
-    system_instruction: { parts: [{ text: systemInstruction }] },
+    systemInstruction: { parts: [{ text: systemInstruction }] },
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
     generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
   };
